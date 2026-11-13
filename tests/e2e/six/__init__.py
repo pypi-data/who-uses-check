@@ -2,6 +2,3 @@
 # comment listing the PyPI packages that use six.moves.
 moves = None
 
-
-def b(s):
-    return s.encode("latin-1")
