@@ -1,0 +1,29 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: python -m unittest discover -s tests -v
+
+  check-fixture:
+    # Runs check.py the way the action does, on two fixture versions of a package.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          python3 -m venv /tmp/venv && /tmp/venv/bin/pip install --quiet "py-code-org>=0.1,<1"
+          /tmp/venv/bin/python check.py --base tests/fixture/before --head tests/fixture/after | tee report.md
+          grep -q "demo.merge_environment_settings" report.md

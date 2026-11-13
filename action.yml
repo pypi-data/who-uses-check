@@ -1,0 +1,79 @@
+name: "py-code who-uses check"
+description: "Comment on a pull request when it removes or renames public names that other PyPI packages use."
+author: "py-code.org"
+branding:
+  icon: "alert-triangle"
+  color: "orange"
+
+inputs:
+  source:
+    description: "Folder that holds the package, relative to the repository root. Default: src/ if it has a package, else the root."
+    default: ""
+  packages:
+    description: "Comma-separated top-level packages to check. Default: every package found in the source folder."
+    default: ""
+  base:
+    description: "Commit to compare against. Default: the pull request's base commit."
+    default: ""
+  min-downloads:
+    description: "Only count users with at least this many downloads in 30 days."
+    default: "0"
+  max-lookups:
+    description: "Look up at most this many removed names."
+    default: "300"
+  comment:
+    description: "Create or update a comment on the pull request (needs pull-requests: write)."
+    default: "true"
+  fail-on-used:
+    description: "Fail the check when a removed name is used by a package on PyPI."
+    default: "false"
+  client:
+    description: "pip requirement for the py-code.org client."
+    default: "py-code-org>=0.1,<1"
+
+outputs:
+  removed:
+    description: "Number of public names removed (classes and modules counted once)."
+    value: ${{ steps.check.outputs.removed }}
+  used:
+    description: "Number of removed names that packages on PyPI use."
+    value: ${{ steps.check.outputs.used }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install the py-code.org client
+      shell: bash
+      env:
+        CLIENT: ${{ inputs.client }}
+      run: |
+        python3 -m venv "$RUNNER_TEMP/py-code-check"
+        "$RUNNER_TEMP/py-code-check/bin/pip" install --quiet --disable-pip-version-check "$CLIENT"
+
+    - name: Get the base version
+      shell: bash
+      env:
+        BASE: ${{ inputs.base || github.event.pull_request.base.sha }}
+      run: |
+        if [ -z "$BASE" ]; then echo "::error::No base commit. Run on pull_request or set the base input."; exit 2; fi
+        git fetch --quiet --no-tags --depth=1 origin "$BASE"
+        mkdir -p "$RUNNER_TEMP/py-code-base"
+        git archive "$BASE" | tar -x -C "$RUNNER_TEMP/py-code-base"
+
+    - name: Compare public names and look them up
+      id: check
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        SOURCE: ${{ inputs.source }}
+        PACKAGES: ${{ inputs.packages }}
+        MIN_DOWNLOADS: ${{ inputs.min-downloads }}
+        MAX_LOOKUPS: ${{ inputs.max-lookups }}
+        COMMENT: ${{ inputs.comment }}
+        FAIL_ON_USED: ${{ inputs.fail-on-used }}
+      run: |
+        args=(--base "$RUNNER_TEMP/py-code-base" --head "$GITHUB_WORKSPACE" --source "$SOURCE" --packages "$PACKAGES"
+              --min-downloads "$MIN_DOWNLOADS" --max-lookups "$MAX_LOOKUPS")
+        [ "$COMMENT" = "true" ] && args+=(--comment)
+        [ "$FAIL_ON_USED" = "true" ] && args+=(--fail-on-used)
+        "$RUNNER_TEMP/py-code-check/bin/python" "$GITHUB_ACTION_PATH/check.py" "${args[@]}"
