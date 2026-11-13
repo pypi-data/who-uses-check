@@ -4,7 +4,7 @@ A GitHub Action for Python library maintainers. When a pull request removes or r
 function, class, method or module, it looks the old name up in the
 [py-code.org](https://py-code.org) index and comments with the PyPI packages that use it.
 
-The index covers the latest release of more than 335,000 PyPI projects and records every name
+The index covers the latest release of more than 354,000 PyPI projects and records every name
 their code imports or reaches by attribute, with the file and line.
 
 Example comment, for urllib3 1.26 → 2.0:
